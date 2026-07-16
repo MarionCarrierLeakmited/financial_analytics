@@ -256,6 +256,18 @@ class FinancialSprintLoader:
         return self.load().to_dict(orient="records")
 
 
+    def simulate_margin(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Simulate the margin for each deal with harmonized LS costs."""
+        df = df.copy()
+        df["simulated_costs_sprint_normalized"] = (df['ls_internal'].fillna(0) + df['ls_external'].fillna(0)) * 611 + 200 + 1062 + 302
+        
+        _dv = pd.to_numeric(df["deal_value_eur"], errors="coerce")
+        df["simulated_margin"] = (
+            ((_dv - df["simulated_costs_sprint_normalized"]) / _dv)
+            .where(_dv.fillna(0) != 0, 0)
+        )
+        return df
+
 # ── HubSpot ↔ Excel reconciliation ────────────────────────────────────────────
 
 # (excel_col, hubspot_col, label) — the metrics compared side by side.
@@ -354,10 +366,11 @@ def compare_hubspot_vs_excel(financial_df=None, hubspot_df=None, tol: float = 0.
 
     return out
 
-
 if __name__ == "__main__":
     df = FinancialSprintLoader().load()
     print(f"loaded {len(df)} financial rows · {df.shape[1]} columns")
     print(df[["client", "deal_value_eur", "gross_margin_pct", "quote_number"]].head(8).to_string(index=False))
     print()
     compare_hubspot_vs_excel()
+
+    #deal value équivalent : on france : nb_unit = nb_km * 175 if perf < 30 200 < 40 225 if > 40
